@@ -1,0 +1,1038 @@
+
+
+{% liquid
+    case section.settings.product_img_orientation
+        when 'square'
+            assign product_img_width  = auto
+            assign product_img_height = auto
+        when 'landscape'
+            assign product_img_width  = 150
+            assign product_img_height = 120
+        when 'potrait'
+            assign product_img_width  = 120
+            assign product_img_height = 150
+    endcase
+
+    assign product_img_size = product_img_width | append: 'x' | append: product_img_height
+%}
+
+{% liquid    
+    for line_item in cart.items
+        for tag in line_item.product.tags
+            if tag contains 'upsell:'
+                assign product_handle = tag | split: ':' | last
+                assign is_in_cart = false
+
+                for line_item in cart.items
+                    if line_item.product.id == all_products[product_handle].id
+                        assign is_in_cart = true
+                    endif
+                endfor
+
+                unless is_in_cart
+                    unless cart_upsells_product_handles contains product_handle
+                        assign cart_upsells_product_handles = cart_upsells_product_handles | append: product_handle | append: ','
+                    endunless
+                endunless
+            endif
+        endfor
+    endfor
+%}
+
+{% comment %}theme-check-disable{% endcomment %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap-utilities.min.css" integrity="sha256-SYZ4TAMHw3/Lv45coEH6k+nJj3Z/cDrNxDLT/srSQ/g=" crossorigin="anonymous">
+{% comment %}theme-check-enable{% endcomment %}
+
+<style>
+/*
+    General styles
+*/
+[type=button]:not(:disabled), 
+[type=reset]:not(:disabled), 
+[type=submit]:not(:disabled), 
+button:not(:disabled) {
+    cursor: pointer;
+}
+
+.img-fluid {
+    max-width: 100%;
+    height: auto;
+}
+
+.small {
+    font-size: .875em;
+}
+
+.text-ellipsis {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 
+    Bootstrap Offcanvas 
+    https://github.com/twbs/bootstrap/blob/main/dist/css/bootstrap.css
+*/
+.offcanvas {
+    position: fixed;
+    bottom: 0;
+    z-index: 1045;
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+    visibility: hidden;
+    background-color: #fff;
+    background-clip: padding-box;
+    outline: 0;
+    transition: transform 0.3s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .offcanvas {
+      transition: none;
+    }
+}
+
+.offcanvas-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1040;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000;
+}
+
+.offcanvas-backdrop.fade {
+    transition: opacity .15s linear;
+    opacity: 0;
+}
+
+.offcanvas-backdrop.show {
+    opacity: 0.5;
+}
+
+.offcanvas-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1rem;
+}
+
+.offcanvas-header .btn-close {
+    padding: 0.5rem 0.5rem;
+    margin-top: -0.5rem;
+    margin-right: -0.5rem;
+    margin-bottom: -0.5rem;
+}
+
+.offcanvas-title {
+    margin-bottom: 0;
+    line-height: 1.5;
+}
+
+.offcanvas-body {
+    flex-grow: 1;
+    padding: 1rem 1rem;
+    overflow-y: auto;
+}
+
+.offcanvas-start {
+    top: 0;
+    left: 0;
+    width: 90%;
+    border-right: 1px solid rgba(0, 0, 0, 0.2);
+    transform: translateX(-100%);
+}
+
+.offcanvas-end {
+    top: 0;
+    right: 0;
+    width:90%;
+    border-left: 1px solid rgba(0, 0, 0, 0.2);
+    transform: translateX(100%);
+}
+
+.offcanvas-top {
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 30vh;
+    max-height: 100%;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+    transform: translateY(-100%);
+}
+
+.offcanvas-bottom {
+    right: 0;
+    left: 0;
+    height: 30vh;
+    max-height: 100%;
+    border-top: 1px solid rgba(0, 0, 0, 0.2);
+    transform: translateY(100%);
+}
+
+.offcanvas.show {
+    transform: none;
+}
+
+  .cart-item__image{
+width:120px;
+  }
+/*
+    Btn close
+    https://github.com/twbs/bootstrap/blob/main/dist/css/bootstrap.css
+*/
+.btn-close {
+    box-sizing: content-box;
+    width: 1em;
+    height: 1em;
+    padding: 0.25em 0.25em;
+    color: #000;
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 011.414 0L8 6.586 14.293.293a1 1 0 111.414 1.414L9.414 8l6.293 6.293a1 1 0 01-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 01-1.414-1.414L6.586 8 .293 1.707a1 1 0 010-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat;
+    border: 0;
+    border-radius: 0.25rem;
+    opacity: 0.5;
+}
+.btn-close:hover {
+    color: #000;
+    text-decoration: none;
+    opacity: 0.75;
+}
+.btn-close:focus {
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    opacity: 1;
+}
+.btn-close:disabled, .btn-close.disabled {
+    pointer-events: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    opacity: 0.25;
+}
+
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/*
+    Bootstrap Progress bar
+    https://github.com/twbs/bootstrap/blob/main/dist/css/bootstrap.css
+*/
+@-webkit-keyframes progress-bar-stripes {
+    0% { background-position-x: 1rem; }
+}
+  
+@keyframes progress-bar-stripes {
+    0% { background-position-x: 1rem; }
+}
+
+.progress {
+    display: flex;
+    height: 1rem;
+    overflow: hidden;
+    font-size: 0.75rem;
+    background-color: #e9ecef;
+    border-radius: 0.25rem;
+}
+  
+.progress-bar {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+    background-color: #0d6efd;
+    transition: width 0.6s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .progress-bar { transition: none; }
+}
+  
+/* .progress-bar-striped {
+    background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+    background-size: 1rem 1rem;
+}
+  
+.progress-bar-animated {
+    -webkit-animation: 1s linear infinite progress-bar-stripes;
+    animation: 1s linear infinite progress-bar-stripes;
+}
+ */
+@media (prefers-reduced-motion: reduce) {
+    .progress-bar-animated {
+        -webkit-animation: none;
+        animation: none;
+    }
+}
+  .cart-item__name{
+    font-weight:bold;
+  }
+
+/*
+    Overrides Bootstrap styles
+*/
+.offcanvas {
+    border: none;
+    box-shadow: 0 0 2rem rgba(0, 0, 0, .25);
+}
+
+.offcanvas-backdrop {
+    display: block !important; /* Fix for Dawn theme that hides empty divs */
+}
+
+/*
+    Cart Upsells
+*/
+#eg-cart-drawer-upsells-title {
+    border-bottom: 1px solid rgba(0, 0, 0, .1);
+    padding-bottom: .5rem;
+}
+
+ul#eg-cart-drawer-upsells-list {
+    list-style-type: none;
+    overflow: auto;
+    display: flex;
+    padding: 0 .5rem 1.5rem;
+    margin: 0 -1rem .5rem;
+}
+
+ul#eg-cart-drawer-upsells-list > li {
+    width: 120px;
+    padding: 0 .5rem;
+    flex-shrink: 0;
+}
+
+ul#eg-cart-drawer-upsells-list select {
+    width: 100%;
+    display: block;
+}
+
+ul#eg-cart-drawer-upsells-list button {
+    min-width: auto;
+    width: 100%;
+    min-height: auto;
+    padding: 0.5rem;
+}
+
+ul#eg-cart-drawer-upsells-list button .path {
+    stroke: white;
+
+}
+.cart-item__mrp {
+    display: block;
+    color: #999;
+    font-size: 0.9em;
+}
+
+.price-breakdown {
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.text-success {
+    color: #28a745;
+}
+
+/*
+    Cart Note
+*/
+#eg-cart-drawer-note-title {
+    border-bottom: 1px solid rgba(0, 0, 0, .1);
+    padding-bottom: .5rem;
+}
+</style>
+
+<script>
+window.addEventListener('DOMContentLoaded', (event) => {
+    const initBootstrapScript = () => {
+        if (!document.querySelector('#bootstrap-js')) {
+            const script = document.createElement('script')
+            script.setAttribute('id', 'bootstrap-js')
+            script.setAttribute('src', 'https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js')
+            script.setAttribute('integrity', 'sha256-cMPWkL3FzjuaFSfEYESYmjF25hCIL6mfRSPnW8OVvM4=')
+            script.setAttribute('crossorigin', 'anonymous')
+            document.head.appendChild(script)
+        }
+    }
+    initBootstrapScript()
+
+    // Open the cart drawer by URL if contains '#cart'
+    if (window.location.hash.includes('#cart')) {
+        setTimeout(() => {
+            const offcanvas = bootstrap.Offcanvas.getOrCreateInstance('#cart-drawer')
+            offcanvas.show()
+        }, 250)
+    }
+
+    // Load cart drawer on ajax add/update
+    window.loadEgCartDrawer = async () => {
+        const $cartDrawer = document.querySelector('#cart-drawer')
+        if (!$cartDrawer) return;
+
+        const bsOffcanvas = bootstrap.Offcanvas.getOrCreateInstance($cartDrawer)
+        bsOffcanvas.show()
+
+        const $form = $cartDrawer.querySelector('form')
+        $form.style.opacity = '.2'
+
+        const respoonse = await fetch(window.location.href)
+        const data = await respoonse.text()
+
+        const parser = new DOMParser()
+        const newDocument = parser.parseFromString(data, 'text/html')
+
+        $form.replaceWith(newDocument.querySelector('#cart-drawer form'))
+
+        document.querySelector('#cart-icon-bubble')
+            ?.replaceWith(newDocument.querySelector('#cart-icon-bubble'))
+
+        initCartDrawerQuantity()
+        initCartDrawerRemoveButtons()
+        initCartGoal()
+        initCartUpsells()
+        initCartNote()
+    }
+
+    // Handle quantity
+    const initCartDrawerQuantity = () => {
+        document.querySelectorAll('#cart-drawer quantity-input .quantity__input').forEach(($input) => {
+            $input.addEventListener('change', async (e) => {
+                await fetch('/cart/change.js', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        line: $input.dataset.index,
+                        quantity: Number($input.value)
+                    })
+                })
+                loadEgCartDrawer()
+            })
+        })
+    }
+    initCartDrawerQuantity()
+
+    // Handle remove buttons
+    const initCartDrawerRemoveButtons = () => {
+        document.querySelectorAll('cart-remove-button a').forEach(($btn) => {
+            $btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+
+                await fetch('/cart/change.js', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        line: $btn.parentElement.dataset.index,
+                        quantity: 0
+                    })
+                })
+                loadEgCartDrawer()
+            })
+        })
+    }
+    initCartDrawerRemoveButtons()
+
+    // Cart Goal - Animate width
+    const initCartGoal = () => {
+        const progressBar = document.querySelector('#eg-cart-drawer-goal .progress-bar')
+
+        if (progressBar) {
+            setTimeout(() => {
+                progressBar.style.width = progressBar.dataset.width
+            }, 250)
+        }
+    }
+    initCartGoal()
+
+    // Cart Upsells 
+    const initCartUpsells = async () => {
+        document.querySelectorAll('#eg-cart-drawer-upsells-list button').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault()
+
+                btn.querySelector('span').classList.add('hidden')
+                btn.querySelector('.loading-overlay__spinner').classList.remove('hidden')
+
+                const variantId = btn.closest('.eg-cart-drawer-upsells-list-item').querySelector('select[name="id"]').value
+
+                const response = await fetch('/cart/add.js', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: [{
+                            id: Number(variantId),
+                            quantity: 1
+                        }]
+                    })
+                })
+
+                const data = await response.json()
+                console.log(data)
+
+                loadEgCartDrawer()
+            })
+        }) 
+    }
+    initCartUpsells()
+
+    // Cart Note
+    const initCartNote = async () => {
+        document.querySelectorAll('#eg-cart-drawer-note button').forEach((btn) => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault()
+
+                btn.querySelector('span').classList.add('hidden')
+                btn.querySelector('.loading-overlay__spinner').classList.remove('hidden')
+
+                const note = document.querySelector('#eg-cart-drawer-note textarea').value
+
+                const response = await fetch('/cart/update.js', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        note: note
+                    })
+                })
+                const data = await response.json()
+                console.log(data)
+
+                btn.querySelector('span').classList.remove('hidden')
+                btn.querySelector('span').textContent = '✓'
+                btn.querySelector('.loading-overlay__spinner').classList.add('hidden')
+
+                setTimeout(() => {
+                    btn.querySelector('span').textContent = btn.dataset.text
+                }, 2000)
+            })
+        })
+    }
+    initCartNote()
+})
+</script>
+
+{% unless request.page_type == 'cart' %}
+    <div 
+        id="cart-drawer" 
+        class="offcanvas offcanvas-end" 
+        tabindex="-1" 
+        aria-labelledby="cart-drawer-label"
+        style="max-width: {{ section.settings.drawer_width | append: 'px' }}">
+        <form class="d-flex flex-column h-100"  method="post" action="{{ routes.cart_url }}">
+            <div class="offcanvas-header border-bottom">
+                <h3 id="cart-drawer-label" class="offcanvas-title m-0">
+                    <div class="d-flex align-items-center">
+                        {{ 'sections.cart.title' | t }} 
+                        ({{ cart.item_count }})
+                    </div>
+                </h3>
+                <button 
+                    type="button" 
+                    class="btn-close {% if section.settings.header_bg_color contains 'text-white' %}btn-close-white{% endif %}" 
+                    data-bs-dismiss="offcanvas" 
+                    aria-label="Close">
+                </button>
+            </div>
+            {% if cart.item_count == 0 %}
+                <div class="offcanvas-body">
+                    <div class="offcanvas-cart-empty d-flex justify-content-center flex-column align-items-center h-100">
+                        <div style="width: 5rem; height: 5rem;">
+                            {% render 'icon-cart-empty' %}
+                        </div>
+                        {{ 'sections.cart.empty' | t }} 
+                    </div>
+                </div>
+                <div class="offcanvas-footer py-4 px-4">
+                    <button
+                        type="button"
+                        class="button button--secondary w-100 d-flex align-items-center justify-content-center"
+                        data-bs-dismiss="offcanvas">
+                        {{ 'general.continue_shopping' | t }}
+                    </button>
+                    </div>
+            {% else %}
+                <div class="offcanvas-body">
+                    {% unless section.settings.cart_goal_value == 0 %}
+                        {% liquid
+                            assign goal_value_with_cents = section.settings.cart_goal_value | times: 100
+                    
+                            if cart.total_price < goal_value_with_cents
+                                assign cart_goal_percentage = cart.total_price | divided_by: section.settings.cart_goal_value
+                                assign cart_goal_color = section.settings.cart_goal_color_before
+                                assign goal_remaining_money = goal_value_with_cents | minus: cart.total_price | money
+                                assign cart_goal_desc = section.settings.cart_goal_description_before | replace: '[amount]', goal_remaining_money
+                            else
+                                assign cart_goal_percentage = 100
+                                assign cart_goal_color = section.settings.cart_goal_color_after
+                                assign cart_goal_desc = section.settings.cart_goal_description_after
+                            endif
+                        %}
+                        <div id="eg-cart-drawer-goal" class="mb-3">
+                            <div 
+                                class="rte text-center small mb-1" 
+                                style="{% if cart_goal_percentage == 100 %}color: {{ cart_goal_color }};{% endif %}">
+                                {{ cart_goal_desc }}
+                            </div>
+                            <div class="progress" style="height: 1.25rem;">
+                                <div 
+                                    class="progress-bar progress-bar-striped progress-bar-animated" 
+                                    role="progressbar" 
+                                    aria-valuenow="{{ cart.total_price | money }}" 
+                                    aria-valuemin="0"
+                                    aria-valuemax="{{ goal_value_with_cents | money }}"
+                                    data-width="{{ cart_goal_percentage }}%"
+                                    style="width: 0%; background-color: {{ cart_goal_color }};">
+                                    <span style="font-size: 1rem; color:white !important;">
+                                        {{ cart_goal_percentage }}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    {% endunless %}
+                    <ul class="product-list list-unstyled mt-n2 mb-0">
+                        {% for line_item in cart.items %}
+                            <li class="product-list-item">
+                                <div class="d-flex align-items-center mx-n3 py-3">
+                                    <a href="{{ line_item.url }}" class="d-block flex-shrink-0 me-3">
+                                        <img 
+                                            class="cart-item__image img-fluid"
+                                            src="{{ line_item.image.src | img_url: product_img_size, crop: 'center' }}"
+                                            alt="{{ line_item.image.alt | escape }}" 
+                                            width="{{ product_img_width }}"
+                                            height="{{ product_img_height }}"
+                                            style="display: block"
+                                            loading="lazy">
+                                    </a>
+                                    <div class="">
+                                        <a href="{{ line_item.url }}" class="cart-item__name h4 break mb-1">
+                                            {{ line_item.product.title }}
+                                        </a>
+                                        {%- if line_item.original_price != line_item.final_price -%}
+                                            <div class="cart-item__discounted-prices mb-2">
+                                                <span class="visually-hidden">MRP</span>
+                                                <s class="cart-item__mrp product-option">
+                                                    {{- line_item.variant.compare_at_price | money -}}
+                                                </s>
+                                                <span class="visually-hidden">
+                                                    {{ 'products.product.price.regular_price' | t }}
+                                                </span>
+                                                <s class="cart-item__old-price product-option">
+                                                    {{- line_item.original_price | money -}}
+                                                </s>
+                                                <span class="visually-hidden">
+                                                    {{ 'products.product.price.sale_price' | t }}
+                                                </span>
+                                                <strong class="cart-item__final-price product-option">
+                                                    {{ line_item.final_price | money }}
+                                                </strong>
+                                            </div>
+                                        {%- else -%}
+                                            <div class="product-option mb-2">
+                                                <span class="visually-hidden">MRP</span>
+                                                <s class="cart-item__mrp">
+                                                    {{- line_item.variant.compare_at_price | money -}}
+                                                </s>
+                                                {{ line_item.original_price | money }}
+                                            </div>
+                                        {%- endif -%}
+
+                                        {%- if line_item.product.has_only_default_variant == false or line_item.properties.size != 0 or line_item.selling_plan_allocation != nil -%}
+                                            <dl class="mt-0 mb-2">
+                                                {%- if line_item.product.has_only_default_variant == false -%}
+                                                    {%- for option in line_item.options_with_values -%}
+                                                        <div class="product-option">
+                                                            <dt>{{ option.name }}: </dt>
+                                                            <dd>{{ option.value }}</dd>
+                                                        </div>
+                                                    {%- endfor -%}
+                                                {%- endif -%}
+                                                {%- for property in line_item.properties -%}
+                                                    {%- assign property_first_char = property.first | slice: 0 -%}
+                                                        {%- if property.last != blank and property_first_char != '_' -%}
+                                                        <div class="product-option">
+                                                            <dt>{{ property.first }}: </dt>
+                                                            <dd>
+                                                            {%- if property.last contains '/uploads/' -%}
+                                                                <a href="{{ property.last }}" class="link" target="_blank">
+                                                                {{ property.last | split: '/' | last }}
+                                                                </a>
+                                                            {%- else -%}
+                                                                {{ property.last }}
+                                                            {%- endif -%}
+                                                            </dd>
+                                                        </div>
+                                                        {%- endif -%}
+                                                {%- endfor -%}
+                                            </dl>
+                                            <p class="product-option">
+                                                {{ line_item.selling_plan_allocation.selling_plan.name }}
+                                            </p>
+                                        {%- endif -%}
+
+                                        <div class="d-flex justify-content-start align-items-center">
+                                            <quantity-input class="quantity">
+                                                <button class="quantity__button no-js-hidden" name="minus" type="button">
+                                                    <span class="visually-hidden">
+                                                        {{ 'products.product.quantity.decrease' | t: product: line_item.product.title | escape }}
+                                                    </span>
+                                                    {% render 'icon-minus' %}
+                                                </button>
+                                                <input class="quantity__input"
+                                                    type="number"
+                                                    name="updates[]"
+                                                    value="{{ line_item.quantity }}"
+                                                    min="0"
+                                                    aria-label="{{ 'products.product.quantity.input_label' | t: product: line_item.product.title | escape }}"
+                                                    id="Quantity-{{ line_item.index | plus: 1 }}"
+                                                    data-index="{{ line_item.index | plus: 1 }}">
+                                                <button class="quantity__button no-js-hidden" name="plus" type="button">
+                                                    <span class="visually-hidden">
+                                                        {{ 'products.product.quantity.increase' | t: product: line_item.product.title | escape }}
+                                                    </span>
+                                                {% render 'icon-plus' %}
+                                                </button>
+                                            </quantity-input>
+                                            <cart-remove-button 
+                                                id="Remove-{{ line_item.index | plus: 1 }}" 
+                                                data-index="{{ line_item.index | plus: 1 }}"
+                                                class="ms-2">
+                                                <a 
+                                                    href="{{ line_item.url_to_remove }}" 
+                                                    class="button button--tertiary" 
+                                                    aria-label="{{ 'sections.cart.remove_title' | t: title: line_item.title }}">
+                                                    {% render 'icon-remove' %}
+                                                </a>
+                                            </cart-remove-button>
+                                        </div>       
+                                    </div>
+                                </div>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    {% if section.settings.cart_upsells_enable and cart_upsells_product_handles != blank %}
+                        {% unless section.settings.cart_upsells_title == blank %}
+                            <h4 id="eg-cart-drawer-upsells-title">
+                                {{ section.settings.cart_upsells_title }}
+                            </h4>
+                        {% endunless %}
+                        <ul id="eg-cart-drawer-upsells-list" class="">
+                            {% assign product_handles_array = cart_upsells_product_handles | split: ',' %}
+                            {% for handle in product_handles_array %}
+                                {% assign product = all_products[handle] %}
+                                <li class="eg-cart-drawer-upsells-list-item" style="width: {{ section.settings.cart_upsells_item_width }}px">
+                                    <a href="{{ product.url }}" class="">
+                                        <img 
+                                            class="img-fluid" 
+                                            src="{{ product.featured_image | img_url: '160x160', crop: 'center' }}"
+                                            alt="{{ product.featured_image.alt }}"
+                                            width="160"
+                                            height="160"
+                                            loading="lazy">
+                                    </a>
+                                    <a href="{{ product.url }}" class="cart-item__name h5 text-ellipsis">
+                                        {{ product.title }}
+                                    </a>
+                                    <div class="product-option mb-2">
+                                        {{ product.price | money }}
+                                    </div>
+                                  
+                                    <select 
+                                        name="id" 
+                                        class="mb-2"
+                                        style="{% if product.has_only_default_variant %}display: none;{% endif %}">
+                                        {% for variant in product.variants %}
+                                            <option value="{{ variant.id }}">
+                                                {{ variant.title }} - {{ variant.price | money }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="button" class="btn button button--full-width">
+                                        <span>{{ section.settings.cart_upsells_btn_text }}</span>
+                                        <div class="loading-overlay__spinner hidden" style="width: 1.25rem;">
+                                            <svg aria-hidden="true" focusable="false" role="presentation" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+                                                <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+                                            </svg>
+                                        </div>
+                                    </button>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                              <div class="essential-upsell-cross-sell-block"></div>
+                              {% comment %} 
+
+                    {% if section.settings.cart_note_enable %}
+                        <div id="eg-cart-drawer-note">
+                            {% unless section.settings.cart_note_title == blank %}
+                                <h4 id="eg-cart-drawer-note-title" class="mb-3">
+                                    {{ section.settings.cart_note_title }}
+                                </h4>
+                            {% endunless %}
+                            <div class="field">
+                                <textarea
+                                    id="eg-cart-drawer-note-textarea"
+                                    class="text-area field__input mb-2"
+                                    name="note" 
+                                    placeholder="{{ section.settings.cart_note_textarea_label }}">{{ cart.note }}</textarea>{%- comment -%}Keep the same line to prevent empty spaces{%- endcomment -%}
+                                <label class="form__label field__label" for="eg-cart-drawer-note-textarea">
+                                    {{ section.settings.cart_note_textarea_label }}
+                                </label>
+                            </div>
+                            <button 
+                                type="button"
+                                class="button button--full-width button--secondary py-2 mt-2"
+                                style="min-height: auto;"
+                                data-text="{{ section.settings.cart_note_btn_text }}">
+                                <span>{{ section.settings.cart_note_btn_text }}</span>
+                                <div class="loading-overlay__spinner hidden" style="width: 1.25rem;">
+                                    <svg aria-hidden="true" focusable="false" role="presentation" class="spinner" viewBox="0 0 66 66" xmlns="http://www.w3.org/2000/svg">
+                                        <circle class="path" fill="none" stroke-width="6" cx="33" cy="33" r="30"></circle>
+                                    </svg>
+                                </div>
+                            </button>
+                        </div>
+                    {% endif %}
+                              {% endcomment %} 
+
+                </div>
+                <div class="offcanvas-footer border-top px-3 py-3">
+                    <div class="price-breakdown">
+                        <p class="text-center mt-0 mb-2">
+                            <span class="text-muted">Total MRP: </span>
+                            <b>{{ cart.total_compare_at_price | money }}</b>
+                        </p>
+                        <p class="text-center mt-0 mb-2">
+                            <span class="text-muted">Discount: </span>
+                            <b class="text-success">-{{ cart.total_compare_at_price | minus: cart.total_price | money }}</b>
+                        </p>
+                        <p class="text-center mt-0 mb-0">
+                            <span class="text-muted">
+                                {{ 'sections.cart.subtotal' | t }}: 
+                            </span>
+                            <b id="cart-subtotal-value">
+                                {{ cart.total_price | money }}
+                            </b>
+                        </p>
+                    </div>
+
+                    {% if section.settings.show_taxes_shipping_text %}
+                        <p class="caption-large text-muted text-center mt-0 mb-3">
+                            {{ 'sections.cart.taxes_and_shipping_policy_at_checkout_html' | t }}
+                        </p>
+                    {% endif %}
+                  <div class="cart-notification__links">
+        <!-- <a href="{{ routes.cart_url }}" id="cart-notification-button" class="button button--secondary button--full-width">View my cart ({{ cart.item_count }})
+ </a> -->
+        <form action="{{ routes.cart_url }}" method="post" id="cart-notification-form">
+          <!-- <button class="button button--primary button--full-width" name="checkout">{{ 'sections.cart.checkout' | t }}</button>
+          <div id="simpl-checkout-ajaxCart-v2" class="simpl-button-container"></div> -->
+          {% render 'gokwik-checkout' %}
+        </form>
+       <a href="{{ shop.url }}" class="underlined-link"> <button type="button" class="link button-label">{{ 'general.continue_shopping' | t }}</button></a>
+      </div>
+
+                    {% if section.settings.show_view_cart_btn %}
+                        <a 
+                            class="button button--full-width button--secondary py-2 mt-2" 
+                            href="{{ routes.cart_url }}"
+                            style="min-height: auto;">
+                            {{ section.settings.view_cart_btn_text }}
+                        </a>
+                    {% endif %}
+                    {% if section.settings.show_payment_icons and shop.enabled_payment_types != empty %}
+                        <div class="payment-icons-wrapper text-center mt-3" style="margin-bottom: -.25rem">
+                            <span class="visually-hidden">
+                                Secure payments
+                            </span>
+                            <ul class="list-unstyled d-flex justify-content-center flex-wrap mb-0">
+                                {% for type in shop.enabled_payment_types %}
+                                    <li 
+                                        class="p-1 d-flex" 
+                                        data-bs-toggle="tooltip" 
+                                        data-bs-placement="top" 
+                                        title="{{ type | replace: "_", " " | camelcase }}">
+                                        {{ type | payment_type_svg_tag: class: 'icon' }}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                            {% unless section.settings.section.settings.payment_icons_text %}
+                                <small class="d-block opacity-60">
+                                    {{ section.settings.payment_icons_text }}
+                                </small>
+                            {% endunless %}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </form>
+    </div>
+{% endunless %}
+
+{% schema %}
+{
+    "name": "EG Cart Drawer",
+    "settings": [
+        {
+            "type": "header",
+            "content": "General"
+        },
+        {
+            "type": "text",
+            "id": "drawer_width",
+            "label": "Drawer Width (px)",
+            "default": "500",
+            "info": "Note: On mobile the drawer width will always be 100%"
+        },
+        {
+            "type": "header",
+            "content": "Products"
+        },
+        {
+            "type": "select",
+            "id": "product_img_orientation",
+            "label": "Product image orientation",
+            "default": "square",
+            "options": [
+                { "value": "square", "label": "Square" },
+                { "value": "landscape", "label": "Landscape" },
+                { "value": "potrait", "label": "Potrait" }
+            ]
+        },
+        {
+            "type": "header",
+            "content": "Footer"
+        },
+        {
+            "type": "checkbox",
+            "id": "show_taxes_shipping_text",
+            "label": "Show 'Taxes & Shipping' text",
+            "default": true
+        },
+        {
+            "type": "checkbox",
+            "id": "show_view_cart_btn",
+            "label": "Show 'View cart' button",
+            "default": false
+        },
+        {
+            "type": "text",
+            "id": "view_cart_btn_text",
+            "label": "'View cart' text",
+            "default": "View cart"
+        },
+        {
+            "type": "checkbox",
+            "id": "show_payment_icons",
+            "label": "Show payment icons",
+            "default": true
+        },
+        {
+            "type": "text",
+            "id": "payment_icons_text",
+            "label": "Payment icons text",
+            "default": "100% secure and protected payments"
+        },
+        {
+            "type": "header",
+            "content": "Cart Goal"
+        },
+        {
+            "type": "range",
+            "id": "cart_goal_value",
+            "label": "Goal value",
+            "info": "Select 0 to disable this feature",
+            "min": 0,
+            "max": 500,
+            "default": 100,
+            "step": 5
+        },
+        {
+            "type": "richtext",
+            "id": "cart_goal_description_before",
+            "label": "Description - Goal not completed",
+            "default": "<p><strong>[amount]</strong> away from FREE Shipping!</p>"
+        },
+        {
+            "type": "color",
+            "id": "cart_goal_color_before",
+            "label": "BG color - Goal not completed",
+            "default": "#fd7e14"
+        },
+        {
+            "type": "richtext",
+            "id": "cart_goal_description_after",
+            "label": "Description - Goal completed",
+            "default": "<p>Congrats! You're eligible for <strong>FREE Shipping.</strong></p>"
+        },
+        {
+            "type": "color",
+            "id": "cart_goal_color_after",
+            "label": "BG color - Goal completed",
+            "default": "success",
+            "default": "#685BC7"
+        },
+        {
+            "type": "header",
+            "content": "Cart Upsells",
+            "info": "Add tags to your products in the following format 'upsell:product-handle'."
+        },
+        {
+            "type": "checkbox",
+            "id": "cart_upsells_enable",
+            "label": "Enable this feature",
+            "default": true
+        },
+        {
+            "type": "text",
+            "id": "cart_upsells_title",
+            "label": "Title",
+            "default": "Recommended to you"
+        },
+        {
+            "type": "text",
+            "id": "cart_upsells_item_width",
+            "label": "Item width (px)",
+            "default": "120",
+            "info": "Fine-tune the upsells layout"
+        },
+        {
+            "type": "text",
+            "id": "cart_upsells_btn_text",
+            "label": "Button text",
+            "default": "Add"
+        },
+        {
+            "type": "header",
+            "content": "Cart Note"
+        },
+        {
+            "type": "checkbox",
+            "id": "cart_note_enable",
+            "label": "Enable this feature",
+            "default": true
+        },
+        {
+            "type": "text",
+            "id": "cart_note_title",
+            "label": "Title",
+            "default": "Add a note to your order"
+        },
+        {
+            "type": "text",
+            "id": "cart_note_textarea_label",
+            "label": "Textarea label",
+            "default": "Add your note here..."
+        },
+        {
+            "type": "text",
+            "id": "cart_note_btn_text",
+            "label": "Button text",
+            "default": "Save note"
+        }
+    ]
+}
+{% endschema %}

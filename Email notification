@@ -1,0 +1,77 @@
+import requests
+from bs4 import BeautifulSoup
+import datetime
+import gspread
+import sys
+from google.oauth2.service_account import Credentials
+# Add these imports
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# ... existing code ...
+
+# Add these email configuration constants after your sheet configuration
+EMAIL_SENDER = "jaya@kreo-tech.com"  # Update this
+EMAIL_PASSWORD = "aqjn ywfk hplg bgqe"  # Update this
+EMAIL_RECIPIENTS = ["dhwanit@kreo-tech.com", "hasan@kreo-tech.com","jaya@kreo-tech.com","ishan@kreo-tech.com"]  # Update this
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+
+# Add this new function to send emails
+def send_price_alert(product, amazon_price, kreo_price, difference_percentage):
+    subject = f"Price Alert: {product}"
+    body = f"""
+    Price deviation detected for {product}:
+    
+    Amazon Price: ₹{amazon_price}
+    Kreo Tech Price: ₹{kreo_price}
+    Price Difference: {difference_percentage:.2f}%
+    
+    Please review and take necessary action.
+    """
+    
+    msg = MIMEMultipart()
+    msg['From'] = EMAIL_SENDER
+    msg['To'] = ', '.join(EMAIL_RECIPIENTS)
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+    
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print(f"Price alert sent for {product}")
+    except Exception as e:
+        print(f"Failed to send email alert: {e}")
+
+# Modify the update_google_sheet function
+def update_google_sheet():
+    # ... existing code until the price fetching ...
+
+    for i in range(1, len(products_data)):
+        # ... existing price fetching code ...
+
+        # Add price comparison logic before creating new_row
+        try:
+            amazon_price_float = float(amazon_price.replace(',', ''))
+            kreo_price_float = float(kreo_tech_price.replace(',', ''))
+            
+            # Calculate price difference percentage
+            higher_price = max(amazon_price_float, kreo_price_float)
+            lower_price = min(amazon_price_float, kreo_price_float)
+            difference_percentage = ((higher_price - lower_price) / lower_price) * 100
+            
+            # If difference is more than 10%, send alert
+            if difference_percentage > 10:
+                send_price_alert(product, amazon_price, kreo_tech_price, difference_percentage)
+        except (ValueError, AttributeError) as e:
+            print(f"Error comparing prices for {product}: {e}")
+
+        # Create a new row with the fetched prices
+        new_row = [product, current_date, amazon_price, flipkart_price, kreo_tech_price]
+        new_rows.append(new_row)
+
+    # ... rest of the existing code ...

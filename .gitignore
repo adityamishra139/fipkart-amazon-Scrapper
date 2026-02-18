@@ -1,0 +1,19 @@
+# Secrets & credentials
+token.json
+credentials.json
+.env
+
+# Debug files
+debug_*.html
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
