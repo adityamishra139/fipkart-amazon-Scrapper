@@ -1,8 +1,10 @@
-import requests
 from bs4 import BeautifulSoup
 import gspread
 import sys
-from google.oauth2.service_account import Credentials
+import time
+import random
+from playwright.sync_api import sync_playwright
+from playwright_stealth import Stealth
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -22,34 +24,20 @@ except Exception as e:
 SPREADSHEET_ID = '1ecfNJT5t4YkT0RTuZ8-O2s0PXQVsl4z6UWB9R4l_UVs'
 WORKSHEET_GID = 733063400
 
-# Function to get the HTML content of the page with retries
-def get_page_content(url):
-    import random
-    import time
+# Function to get the HTML content of a page using Playwright (bypasses anti-bot)
+def get_page_content(page, url):
+    """Fetch page content using an existing Playwright page with stealth."""
+    # Human-like delay between requests
+    time.sleep(random.uniform(8, 15))
     
-    # Reverting to the Safari/Mac header that worked better earlier
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-    }
-    
-    # Increased random delay to cool down rate limits
-    time.sleep(random.uniform(4, 8))
-
     for attempt in range(3):
         try:
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            return response.content.decode('utf-8', errors='replace')
-        except requests.exceptions.HTTPError as e:
+            page.goto(url, wait_until='domcontentloaded', timeout=30000)
+            # Wait a bit for dynamic content to load
+            time.sleep(random.uniform(2, 4))
+            content = page.content()
+            return content
+        except Exception as e:
             if attempt < 2:
                 print(f"Attempt {attempt+1} failed: {e}. Retrying...")
                 time.sleep(random.uniform(5, 10))
@@ -362,78 +350,65 @@ def parse_flipkart_info(html_content):
 
 # Main function to update Google Sheets
 def update_google_sheet():
-    try:
-        sh = client.open_by_key(SPREADSHEET_ID)
-        # Get the specific worksheet by GID
-        worksheet = sh.get_worksheet_by_id(WORKSHEET_GID)
+    # Launch Playwright browser once and reuse for all requests
+    stealth = Stealth()
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            viewport={'width': 1920, 'height': 1080},
+            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            locale='en-IN',
+        )
+        stealth.apply_stealth_sync(context)
+        page = context.new_page()
         
-        print(f"Opened worksheet: {worksheet.title}")
+        print("Browser launched with stealth mode.")
 
-        # Get all values to loop through rows
-        all_values = worksheet.get_all_values()
-        
-        # Start from row 2 (index 1 in 0-based list) to skip header
-        for i, row in enumerate(all_values[1:], start=2):
-            any_updated = False
+        try:
+            sh = client.open_by_key(SPREADSHEET_ID)
+            worksheet = sh.get_worksheet_by_id(WORKSHEET_GID)
             
-            # --- Amazon Processing (Column B -> Column C) ---
-            # Column B is index 1
-            amazon_url = ""
-            if len(row) > 1:
-                amazon_url = row[1].strip()
-            
-            if amazon_url and ("amazon" in amazon_url or "amzn" in amazon_url):
-                try:
-                    print(f"Row {i}: Fetching Amazon price for {amazon_url}")
-                    content = get_page_content(amazon_url)
-                    if content:
-                        price = parse_amazon_info(content, row_id=i)
-                        try:
-                            worksheet.update_cell(i, 3, price)
-                            print(f"Row {i}: Updated Amazon Price (Col C): {price}")
-                            any_updated = True
-                        except Exception as e:
-                            print(f"Row {i}: Error updating Amazon cell: {e}")
-                except Exception as e:
-                    print(f"Row {i}: Error processing Amazon URL: {e}")
-                    try:
-                        worksheet.update_cell(i, 3, "Error")
-                    except: pass
+            print(f"Opened worksheet: {worksheet.title}")
 
-            # --- Flipkart Processing (Disabled for now) ---
-            # Column F is index 5
-            flipkart_url = ""
-            if len(row) > 5:
-                flipkart_url = row[5].strip()
+            all_values = worksheet.get_all_values()
+            
+            for i, row in enumerate(all_values[1:], start=2):
+                any_updated = False
                 
-            """
-            if flipkart_url and "flipkart" in flipkart_url:
-                try:
-                    print(f"Row {i}: Fetching Flipkart price for {flipkart_url}")
-                    content = get_page_content(flipkart_url)
-                    if content:
-                        price = parse_flipkart_info(content, row_id=i)
-                        try:
-                            worksheet.update_cell(i, 7, price)
-                            print(f"Row {i}: Updated Flipkart Price (Col G): {price}")
-                            any_updated = True
-                        except Exception as e:
-                            print(f"Row {i}: Error updating Flipkart cell: {e}")
-                except Exception as e:
-                    print(f"Row {i}: Error processing Flipkart URL: {e}")
+                # --- Amazon Processing (Column B -> Column C) ---
+                amazon_url = ""
+                if len(row) > 1:
+                    amazon_url = row[1].strip()
+                
+                if amazon_url and ("amazon" in amazon_url or "amzn" in amazon_url):
                     try:
-                        worksheet.update_cell(i, 7, "Error")
-                    except: pass
-            """
+                        print(f"Row {i}: Fetching Amazon price for {amazon_url}")
+                        content = get_page_content(page, amazon_url)
+                        if content:
+                            price = parse_amazon_info(content, row_id=i)
+                            try:
+                                worksheet.update_cell(i, 3, price)
+                                print(f"Row {i}: Updated Amazon Price (Col C): {price}")
+                                any_updated = True
+                            except Exception as e:
+                                print(f"Row {i}: Error updating Amazon cell: {e}")
+                    except Exception as e:
+                        print(f"Row {i}: Error processing Amazon URL: {e}")
+                        try:
+                            worksheet.update_cell(i, 3, "Error")
+                        except: pass
 
-            # Rate limiting if we did any scraping
-            if any_updated:
-                import time
-                time.sleep(1)
+                # Rate limiting if we did any scraping
+                if any_updated:
+                    time.sleep(1)
 
-    except Exception as e:
-        print(f"Fatal error in update_google_sheet: {e}")
-        raise
+        except Exception as e:
+            print(f"Fatal error in update_google_sheet: {e}")
+            raise
+        finally:
+            browser.close()
+            print("Browser closed.")
 
 if __name__ == "__main__":
     update_google_sheet()
+

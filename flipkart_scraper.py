@@ -1,10 +1,10 @@
-import requests
 from bs4 import BeautifulSoup
 import gspread
 import sys
-from google.oauth2.service_account import Credentials
 import time
 import random
+from playwright.sync_api import sync_playwright
+from playwright_stealth import Stealth
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -23,35 +23,23 @@ except Exception as e:
 SPREADSHEET_ID = '1ecfNJT5t4YkT0RTuZ8-O2s0PXQVsl4z6UWB9R4l_UVs'
 WORKSHEET_GID = 733063400
 
-# Function to get the HTML content of the page with retries
-def get_page_content(url):
-    import random
-    import time
+# Function to get the HTML content of a page using Playwright (bypasses anti-bot)
+def get_page_content(page, url):
+    """Fetch page content using an existing Playwright page with stealth."""
+    # Longer delays for Flipkart - more aggressive rate limiting
+    time.sleep(random.uniform(10, 18))
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-        "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-    }
-    
-    time.sleep(random.uniform(4, 8))
-
     for attempt in range(3):
         try:
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            return response.content.decode('utf-8', errors='replace')
-        except requests.exceptions.HTTPError as e:
+            page.goto(url, wait_until='domcontentloaded', timeout=30000)
+            # Wait for dynamic content to load
+            time.sleep(random.uniform(3, 5))
+            content = page.content()
+            return content
+        except Exception as e:
             if attempt < 2:
                 print(f"Attempt {attempt+1} failed: {e}. Retrying...")
-                time.sleep(random.uniform(5, 10))
+                time.sleep(random.uniform(8, 15))
             else:
                 print(f"Attempt {attempt+1} failed: {e}. No more retries.")
                 raise
@@ -147,50 +135,67 @@ def parse_flipkart_info(html_content, row_id=None):
     return "Price not found"
 
 def update_google_sheet():
-    try:
-        sh = client.open_by_key(SPREADSHEET_ID)
-        worksheet = sh.get_worksheet_by_id(WORKSHEET_GID)
+    # Launch Playwright browser once and reuse for all requests
+    stealth = Stealth()
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            viewport={'width': 1920, 'height': 1080},
+            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            locale='en-IN',
+        )
+        stealth.apply_stealth_sync(context)
+        page = context.new_page()
         
-        print(f"Opened worksheet: {worksheet.title}")
+        print("Browser launched with stealth mode.")
 
-        all_values = worksheet.get_all_values()
-        
-        # Start from row 2
-        for i, row in enumerate(all_values[1:], start=2):
-            any_updated = False
+        try:
+            sh = client.open_by_key(SPREADSHEET_ID)
+            worksheet = sh.get_worksheet_by_id(WORKSHEET_GID)
             
-            # --- Flipkart Processing (Column F -> Column G) ---
-            # Column F is index 5
-            flipkart_url = ""
-            if len(row) > 5:
-                flipkart_url = row[5].strip()
+            print(f"Opened worksheet: {worksheet.title}")
+
+            all_values = worksheet.get_all_values()
             
-            if flipkart_url and "flipkart" in flipkart_url:
-                try:
-                    print(f"Row {i}: Fetching Flipkart price for {flipkart_url}")
-                    content = get_page_content(flipkart_url)
-                    if content:
-                        price = parse_flipkart_info(content, row_id=i)
-                        try:
-                            # Update Column G (index 7 in 1-based API)
-                            worksheet.update_cell(i, 7, price)
-                            print(f"Row {i}: Updated Flipkart Price (Col G): {price}")
-                            any_updated = True
-                        except Exception as e:
-                            print(f"Row {i}: Error updating Flipkart cell: {e}")
-                except Exception as e:
-                    print(f"Row {i}: Error processing Flipkart URL: {e}")
+            # Start from row 2
+            for i, row in enumerate(all_values[1:], start=2):
+                any_updated = False
+                
+                # --- Flipkart Processing (Column F -> Column G) ---
+                flipkart_url = ""
+                if len(row) > 5:
+                    flipkart_url = row[5].strip()
+                
+                if flipkart_url and "flipkart" in flipkart_url:
                     try:
-                        worksheet.update_cell(i, 7, "Error")
-                    except: pass
-            
-            # Rate limiting
-            if any_updated:
-                time.sleep(1)
+                        print(f"Row {i}: Fetching Flipkart price for {flipkart_url}")
+                        content = get_page_content(page, flipkart_url)
+                        if content:
+                            price = parse_flipkart_info(content, row_id=i)
+                            try:
+                                # Update Column G (index 7 in 1-based API)
+                                worksheet.update_cell(i, 7, price)
+                                print(f"Row {i}: Updated Flipkart Price (Col G): {price}")
+                                any_updated = True
+                            except Exception as e:
+                                print(f"Row {i}: Error updating Flipkart cell: {e}")
+                    except Exception as e:
+                        print(f"Row {i}: Error processing Flipkart URL: {e}")
+                        try:
+                            worksheet.update_cell(i, 7, "Error")
+                        except: pass
+                
+                # Rate limiting
+                if any_updated:
+                    time.sleep(1)
 
-    except Exception as e:
-        print(f"Fatal error in update_google_sheet: {e}")
-        raise
+        except Exception as e:
+            print(f"Fatal error in update_google_sheet: {e}")
+            raise
+        finally:
+            browser.close()
+            print("Browser closed.")
 
 if __name__ == "__main__":
     update_google_sheet()
+
